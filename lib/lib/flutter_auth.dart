@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:flutter_oauth/lib/auth_code_information.dart';
 import 'package:flutter_oauth/lib/model/config.dart';
 import 'package:flutter_oauth/lib/oauth.dart';
-import 'package:flutter_webview_plugin/flutter_webview_plugin.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class FlutterOAuth extends OAuth {
   final StreamController<String> onCodeListener = new StreamController();
 
-  final FlutterWebviewPlugin webView = new FlutterWebviewPlugin();
+  
 
   var isBrowserOpen = false;
   var server;
@@ -30,13 +30,10 @@ class FlutterOAuth extends OAuth {
       listenForServerResponse(server);
 
       final String urlParams = constructUrlParams();
-      webView.onDestroy.first.then((_) {
-        close();
-      });
 
-
-      webView.launch("${requestDetails.url}?$urlParams",
-          clearCookies: requestDetails.clearCookies);
+      closeWebView();
+      launch("${requestDetails.url}?$urlParams",
+          forceWebView: configuration.forceWebiew, forceSafariVC: configuration.forceSafariVC, enableJavaScript: configuration.enableJavaScript);
 
       code = await onCode.first;
       close();
@@ -47,7 +44,7 @@ class FlutterOAuth extends OAuth {
   void close() {
     if (isBrowserOpen) {
       server.close(force: true);
-      webView.close();
+      closeWebView();
     }
     isBrowserOpen = false;
   }
@@ -67,6 +64,11 @@ class FlutterOAuth extends OAuth {
 
       final code = uri.queryParameters["code"];
       final error = uri.queryParameters["error"];
+      
+      if( (configuration.redirectedHtml != null) && (configuration.forceWebiew != true) ) {
+        request.response.write(configuration.redirectedHtml);
+      }
+      
       await request.response.close();
       if (code != null && error == null) {
         onCodeListener.add(code);
